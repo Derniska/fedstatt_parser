@@ -50,6 +50,14 @@ class FedStatIndicator:
             })
         filter_ids = [f"{k}_{val}" for item in categories for k, v in item.items() for val in v]
         return filter_ids
+    
+    def get_indicator_title(self):
+        
+        if self._filters_raw is None:
+            self._filters_raw = self._get_filters_raw()
+
+        title = list(self._filters_raw["0"]['values'].values())[0]['title']
+        return title
 
     def load_raw_indicator(self, data_type: str = "excel", filter_ids: List["str"] =  None):
         """
