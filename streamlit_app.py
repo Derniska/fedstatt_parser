@@ -62,22 +62,21 @@ if st.session_state.show_block_1:
         selectbox_values = population.filter_codes
         options = population.filter_categories
         selected_values = []
+
         for key, val in selectbox_values.items():
             col1, col2 = st.columns([1, 1])
             sb_options = list(options.get(key).values())
             if len(sb_options) > 1:
-                all_options = ["Все"] + sb_options
+                all_options = ["Выбрать все"] + sb_options
                 with col1:
                     selected = st.multiselect(val, options = all_options, default = all_options[0])
-                with col2:
-                    if st.button("Все", key = f"selected_{key}"):
-                        seletect = all_options[1:]
                         
-                if "Все" in selected:
+                if "Выбрать все" in selected:
                     selected = sb_options
+                selected_values.append(selected)
             else:
-                selected.append(sb_options)
-
+                selected_values.append(sb_options)
+        st.write(selected_values)
         if st.button("Загрузить данные"):
             with st.spinner("Загрузка данных... Это может занять до 10 минут"):
                 st.write(population.get_indicator_title())
