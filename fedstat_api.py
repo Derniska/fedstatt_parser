@@ -5,14 +5,15 @@ import requests
 from bs4 import BeautifulSoup
 import json
 from io import BytesIO
+from functools import cached_property
 
 class FedStatIndicator:
     def __init__(self, indicator_id):
         self.id = indicator_id
-        self._filters_raw = None
         self._raw_data = None
 
-    def _get_filters_raw(self):
+    @cached_property
+    def _filters_raw(self):
         """Получает сырые данные фильтров"""
         html = requests.get(f'https://www.fedstat.ru/indicator/{self.id}')
         if html.status_code == 200:
@@ -23,25 +24,26 @@ class FedStatIndicator:
             filters = "{" + match + "}"
             filters = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', filters)
             filters = filters.replace("'", '"')
-            self._filters_raw = json.loads(filters)['filters']
-            return self._filters_raw
+            filters_raw = json.loads(filters)['filters']
+            return filters_raw
         else:
             raise requests.RequestException(f"Ошибка HTTP-запроса")
 
-    def get_filters_text(self):
+    @cached_property
+    def filter_codes(self):
         """
         Возвращает код и название показателя, доступного для фильтрации
         """
-        filters = self._get_filters_raw()
-        filter_values = {key : filters[key]['title'] for key in list(filters.keys())[1:]}
-        return filter_values
+        
+        filter_codes = {key : self._filters_raw[key]['title'] for key in list(self._filters_raw.keys())[1:]}
+        return filter_codes
 
     def get_filter_values(self):
         """
         Возвращает названия и коды доступных значений для выбранных фильтров
         """
         filters = self._get_filters_raw()
-        filter_codes = self.get_filters_text()
+        filter_codes = self.get_filter_codes()
         
         categories =[]
         for key in filter_codes.keys():
@@ -50,14 +52,14 @@ class FedStatIndicator:
             })
         filter_ids = [f"{k}_{val}" for item in categories for k, v in item.items() for val in v]
         return filter_ids
-    
-    def get_indicator_title(self):
         
-        if self._filters_raw is None:
-            self._filters_raw = self._get_filters_raw()
-
-        title = list(self._filters_raw["0"]['values'].values())[0]['title']
-        return title
+    @cached_property     
+    def filter_categories(self):
+        result_dict = {}
+        for category in self.filter_codes.keys():
+            values_data = self._filters_raw[category]['values']
+            result_dict[category] = {f"{category}_{k}": v['title'] for k, v in values_data.items()}
+        return result_dict
 
     def load_raw_indicator(self, data_type: str = "excel", filter_ids: List["str"] =  None):
         """

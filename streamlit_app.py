@@ -43,7 +43,8 @@ if st.session_state.show_block_1:
                 "<p style='font-size:22px; font-weight:bold;'>Численность населения</p>", 
                 unsafe_allow_html=True
             )
-        col1, col2 = st.columns([1,3])
+        col1, col2 = st.columns(2)
+        
         with col1:
             gender = st.selectbox(
                 "Выберите пол",
@@ -53,15 +54,35 @@ if st.session_state.show_block_1:
             indicator_id = 31548
         if gender == "Женщины":
             indicator_id = 33459
-            
+        try: 
+            population = FedStatIndicator(indicator_id)
+        except Exception as e:
+                print(f"Ошибка при загрузке данных: {e}")
+
+        selectbox_values = population.filter_codes
+        options = population.filter_categories
+        selected_values = []
+        for key, val in selectbox_values.items():
+            col1, col2 = st.columns([1, 1])
+            sb_options = list(options.get(key).values())
+            if len(sb_options) > 1:
+                all_options = ["Все"] + sb_options
+                with col1:
+                    selected = st.multiselect(val, options = all_options, default = all_options[0])
+                with col2:
+                    if st.button("Все", key = f"selected_{key}"):
+                        seletect = all_options[1:]
+                        
+                if "Все" in selected:
+                    selected = sb_options
+            else:
+                selected.append(sb_options)
+
         if st.button("Загрузить данные"):
             with st.spinner("Загрузка данных... Это может занять до 10 минут"):
-                try:
-                    population = FedStatIndicator(indicator_id)
-                    st.write(population.get_indicator_title())
-                    st.session_state.df = population.get_processed_data()
-                except Exception as e:
-                    print(f"Ошибка при загрузке данных: {e}")
+                st.write(population.get_indicator_title())
+                st.session_state.df = population.get_processed_data()
+            
             if st.session_state is not None:
 
                 st.dataframe(
