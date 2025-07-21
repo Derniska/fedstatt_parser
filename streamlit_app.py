@@ -3,10 +3,13 @@ from fedstat_api import FedStatIndicator
 
 def reset_blocks(active_block):
     st.session_state.show_block_1 = (active_block == 1)
+    st.session_state.show_block_2 - (active_block == 2)
 
 
 if "show_block_1" not in st.session_state:
     st.session_state.show_block_1 = False
+if "show_block_2" not in st.session_state:
+    st.session_state.show_block_2 = False
 if "df" not in st.session_state:
      st.session_state.df_men = None
 
@@ -61,10 +64,11 @@ if st.session_state.show_block_1:
 
         selectbox_values = population.filter_codes
         options = population.filter_categories
+        
         selected_values = []
 
+        col1, col2 = st.columns([1, 1])
         for key, val in selectbox_values.items():
-            col1, col2 = st.columns([1, 1])
             sb_options = list(options.get(key).values())
             if len(sb_options) > 1:
                 all_options = ["Выбрать все"] + sb_options
@@ -76,11 +80,22 @@ if st.session_state.show_block_1:
                 selected_values.append(selected)
             else:
                 selected_values.append(sb_options)
-        st.write(selected_values)
+        
+        options_dict = {}
+        for option in options.values():
+            options_dict.update(option)
+
+        values_to_pass = []  
+        for selected_list in selected_values:
+            for value in selected_list:
+                for k, v in options_dict.items():
+                    if v == value:
+                        values_to_pass.append(k)
+       
         if st.button("Загрузить данные"):
             with st.spinner("Загрузка данных... Это может занять до 10 минут"):
-                st.write(population.get_indicator_title())
-                st.session_state.df = population.get_processed_data()
+                st.write(population.indicator_title)
+                st.session_state.df = population.get_processed_data(filter_ids = values_to_pass)
             
             if st.session_state is not None:
 

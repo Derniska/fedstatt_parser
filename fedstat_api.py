@@ -38,12 +38,19 @@ class FedStatIndicator:
         filter_codes = {key : self._filters_raw[key]['title'] for key in list(self._filters_raw.keys())[1:]}
         return filter_codes
 
+    @cached_property
+    def indicator_title(self):
+        """
+        Возвращает название индикатора
+        """
+        return list(self._filters_raw.get("0").get("values").values())[0]["title"]
+
     def get_filter_values(self):
         """
         Возвращает названия и коды доступных значений для выбранных фильтров
         """
-        filters = self._get_filters_raw()
-        filter_codes = self.get_filter_codes()
+        filters = self._filters_raw
+        filter_codes = self._filter_codes
         
         categories =[]
         for key in filter_codes.keys():
