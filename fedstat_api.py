@@ -50,7 +50,7 @@ class FedStatIndicator:
         Возвращает названия и коды доступных значений для выбранных фильтров
         """
         filters = self._filters_raw
-        filter_codes = self._filter_codes
+        filter_codes = self.filter_codes
         
         categories =[]
         for key in filter_codes.keys():
@@ -145,6 +145,9 @@ class FedStatIndicator:
         df.region = df.region.str.strip()
         years = [col for col in df.columns if col.isdigit()]
         df[years] = df[years].astype("Int64")
+         
+        df['age'] = df['age'].str.replace(r'\s*(лет|года|год)$', '', regex = True).str.strip()
+        df = df.drop_duplicates(subset = ['region', 'age', 'settlement'], keep = 'last')
         
         return df
 
