@@ -83,13 +83,19 @@ class FedStatIndicator:
         if filter_ids is None:
             filter_ids = self.get_filter_values()
 
+        columnObjectIds = ["30611", "33560", "3"]
+        lineObjectIds = ["57831", "58335"]
+        for key in self.filter_codes.keys():
+            if key not in columnObjectIds + lineObjectIds:
+                lineObjectIds.append(key)
+
         data = {
-                "lineObjectIds": ["0",  "57831", "58335", "58274", "30611"],
-                "columnObjectIds": ["3", "33560"],
+                "lineObjectIds": lineObjectIds,
+                "columnObjectIds": columnObjectIds,
                 "selectedFilterIds": [
                 filter_ids
                 ]
-            }
+        }
         params = {
             "format" : data_type,
             "id" : self.id  
