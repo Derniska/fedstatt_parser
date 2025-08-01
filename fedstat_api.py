@@ -104,7 +104,14 @@ class FedStatIndicator:
             response = requests.post("https://www.fedstat.ru/indicator/data.do?", params = params, data = data)
             response.raise_for_status()
             if "excel" in response.headers.get("Content-Type"):
-                self._raw_data = pd.read_excel(BytesIO(response.content), engine = "xlrd", header = 2) 
+                raw_data = pd.read_excel(BytesIO(response.content), engine = "xlrd", header = 4) 
+                for col in raw_data.columns:
+                    if "Unnamed" in col:
+                        index = int(col.split(' ')[1])
+                        col_index = lineObjectIds[index]
+                        new_col = self.filter_codes.get(col_index)
+                        raw_data.rename(columns = {col: new_col}, inplace = True)
+                self._raw_data = raw_data
                 return self._raw_data
             else:
                 raise ValueError(
@@ -138,22 +145,14 @@ class FedStatIndicator:
             return 4
     
     def _preprocess_dataframe(self, df):
-     
-        df.drop([df.columns[0], df.columns[4]], axis = 1, inplace = True)
-        df = df.drop(0, axis = 0).reset_index(drop = True)
 
-        df.rename(columns = {
-            'Unnamed: 1' : "region",
-            "Unnamed: 2" : "age",
-            "Unnamed: 3" : "settlement"
-            }, inplace = True)
-
-        df.region = df.region.str.strip()
+        df.iloc[:, 0] = df.iloc[:, 0].str.strip()
         years = [col for col in df.columns if col.isdigit()]
         df[years] = df[years].astype("Int64")
          
-        df['age'] = df['age'].str.replace(r'\s*(лет|года|год)$', '', regex = True).str.strip()
-        df = df.drop_duplicates(subset = ['region', 'age', 'settlement'], keep = 'last')
+        df.iloc[:, 1] = df.iloc[:, 1].str.replace(r'\s*(лет|года|год)$', '', regex = True).str.strip()
+        subset_indices = [0, 1, 2]
+        df = df[~df.iloc[:, subset_indices].duplicated(keep = "last")]
         
         return df
 
@@ -172,7 +171,7 @@ class FedStatIndicator:
             r'Дальневосточный федеральный'
         ])
 
-        districts_mask = df['region'].str.contains(rm_districts, case=False)
+        districts_mask =df.iloc[:, 0].str.contains(rm_districts, case=False)
         df = df[~districts_mask].copy().reset_index(drop = True)
         return df
 
@@ -231,16 +230,19 @@ class FedStatIndicator:
                 r'Ставрополь'
             ])   
         }
+        col_one = df.columns[0]
+        col_two = df.columns[1]
+        col_three = df.columns[2]
         aggregated_dfs = []
         for district_name, regions in districts_config.items():
-            mask = df['region'].str.contains(regions, case = False, na = False)
+            mask = df.iloc[:, 0].str.contains(regions, case = False, na = False)
             district_df = df[mask].copy()
             if not district_df.empty:
                 agg_df = district_df.groupby(
-                    ['age', 'settlement'],
+                    [col_two, col_three],
                     as_index = False
                 ).sum(numeric_only = True)
-                agg_df.insert(0, 'region', district_name)
+                agg_df.insert(0, col_one, district_name)
                 aggregated_dfs.append(agg_df)
         df = pd.concat([df] + aggregated_dfs, ignore_index = True)
         return df   
@@ -250,9 +252,9 @@ class FedStatIndicator:
         if df is None:
             df = self._change_districts()
         
-        df['min_age']  = df['age'].apply(self._get_min_age)
-        df['max_age'] = df['age'].apply(self._get_max_age)
-        df['age_category'] = df['age'].apply(self._categorize_age)
+        df['min_age']  = df.iloc[:, 1].apply(self._get_min_age)
+        df['max_age'] = df.iloc[:, 1].apply(self._get_max_age)
+        df['age_category'] = df.iloc[:, 1].apply(self._categorize_age)
 
         
 
@@ -266,8 +268,8 @@ class FedStatIndicator:
                 df_mid[f"{col}end"] = df[col]
             else:
                 df_mid[col] = df[col]        
-        
-        df_mid = df_mid.groupby('region', sort = False).apply(
+        region_col = df.columns[0]
+        df_mid = df_mid.groupby(region_col, sort = False).apply(
                 lambda x: x.sort_values(['age_category', 'min_age', 'max_age'])
                 ).reset_index(drop = True)
         return df_mid
@@ -301,4 +303,5 @@ class FedStatIndicator:
         df = self._remove_districts(df)
         df = self._change_districts(df)
         df = self._add_mid_year_values(df)
+        df = df.drop(columns = ['min_age', 'max_age', 'age_category'])
         return df
