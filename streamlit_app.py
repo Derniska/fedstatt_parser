@@ -142,6 +142,18 @@ def total_sum(df_men, df_women):
             df_all[col] = df_men[col]
     return df_all
 
+def select_data(df, chosen_values = []):
+    df = df.copy()
+    if 'на начало года' == chosen_values.get('time_period'):
+        df = df.drop([col for col in df.columns if 'mid' in df.columns])
+    elif 'среднегодовые значения' == chosen_values.get('time_period'):
+        df = df.drop([col for col in df.columns if 'end' in df.columns])
+    
+    if 'однолетние' == chosen_values.get('age_group'):
+        df = df[df['age_category'] == 1]
+    elif '5-летние' == chosen_values.get('age_group'):
+        df  = df = df[df['age_category'] == 2]
+    return df
 
 if "show_block_1" not in st.session_state:
     st.session_state.show_block_1 = True
@@ -215,13 +227,36 @@ if st.session_state.show_block_2:
                 st.write(f"Ошибка загрузки данных: {e}")
 
         values_to_pass = get_selectbox_args(indicator_1)
+        time_period = st.selectbox(
+            label = 'Выберите значения',
+            options = ['на начало года', 'среднегодовые значения', 'все значения']
+        )
+        age_group = st.selectbox(
+            label = 'Выберите возрастные группы', 
+            options = ['Однолетние', '5-летние','Все группы'],
+            index = 2
+        )
+        def select_values(time_period, age_group, df):
+            df = df.copy()
+            if time_period == 'на начало года': 
+                df = df[[col for col in df.columns if 'end' in col]]
+            elif  time_period == 'среднегодовые значения':
+                df = df[[col for col in df.columns if 'mid' in col]]
 
+            if age_group == 'Однолетние':
+                df = df[df['age_category'] == 1]
+            elif age_group =='5-летние':
+                df  = df[df['age_category'] == 2]
+            return df
+
+        indicator_title = ''
         if st.button("Загрузить данные"):
             with st.spinner("Загрузка данных... Это может занять до 10 минут"):
                 if gender != "Все":
                     st.write(indicator_1.indicator_title)
                     indicator_title = indicator_1.indicator_title
-                    st.session_state.df = indicator_1.get_processed_data(filter_ids = values_to_pass)
+                    df = indicator_1.get_processed_data(filter_ids = values_to_pass)
+                    st.session_state.df = select_values(time_period, age_group, df)
                     st.success("Данные успешно загружены!")
                 if gender == "Все":
                     st.write(f"{indicator_1.indicator_title} / {indicator_2.indicator_title}")
@@ -232,13 +267,13 @@ if st.session_state.show_block_2:
                         df_men, df_women = remove_differences(df_men, df_women)
                         df_men = fill_missing_column(df_men, df_women)
                         df_all = total_sum(df_men, df_women)
-                        st.session_state.df = df_all
+                        df_selected = select_values(time_period, age_group, df_all)
+                        st.session_state.df = df_selected
                         st.success("Данные успешно загружены!")
                     except Exception as e:
-                        print(f"Ошибка обработки данных: {e}")
-            
+                        st.error(f"Ошибка обработки данных: {e}")
         if "df" in st.session_state and st.session_state.df is not None:
-            result = display_and_download(st.session_state.df, indicator_title )
+            result = display_and_download(st.session_state.df, indicator_title = indicator_title)
             if result is None:
                 st.session_state.df = None
                 st.rerun()
